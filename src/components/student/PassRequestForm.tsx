@@ -1,200 +1,186 @@
 
 import React, { useState } from "react";
-import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "../../contexts/AuthContext";
-import { savePassRequest } from "../../utils/storage";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { savePassRequest, generateQRCode } from "../../utils/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Calendar, Clock } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const PassRequestForm: React.FC = () => {
+// The schema defines the form fields and validation
+const formSchema = z.object({
+  purpose: z
+    .string()
+    .min(5, "Purpose must be at least 5 characters")
+    .max(200, "Purpose cannot exceed 200 characters"),
+  leavingTime: z
+    .string()
+    .refine(val => new Date(val) > new Date(), {
+      message: "Leaving time must be in the future",
+    }),
+  returningTime: z
+    .string()
+    .refine(val => new Date(val) > new Date(), {
+      message: "Returning time must be in the future",
+    }),
+}).refine(data => new Date(data.returningTime) > new Date(data.leavingTime), {
+  message: "Returning time must be after leaving time",
+  path: ["returningTime"],
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface PassRequestFormProps {
+  onPassCreated?: () => void;
+}
+
+const PassRequestForm: React.FC<PassRequestFormProps> = ({ onPassCreated }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    leavingTime: "",
-    returningTime: "",
-    purpose: "",
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      purpose: "",
+      leavingTime: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16), // 1 hour from now
+      returningTime: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16), // 3 hours from now
+    },
   });
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const onSubmit = async (data: FormValues) => {
     if (!user) {
       toast({
-        title: "Authentication Error",
-        description: "You must be logged in to request a pass",
+        title: "Error",
+        description: "You must be logged in to submit a pass request",
         variant: "destructive",
       });
       return;
     }
-    
-    setLoading(true);
-    
+
+    setIsSubmitting(true);
+
     try {
-      // Validate the times
-      const leaving = new Date(formData.leavingTime);
-      const returning = new Date(formData.returningTime);
-      
-      if (isNaN(leaving.getTime()) || isNaN(returning.getTime())) {
-        throw new Error("Invalid date or time format");
-      }
-      
-      if (leaving >= returning) {
-        throw new Error("Leaving time must be before returning time");
-      }
-      
-      // Check if returning time is within permitted range (e.g., same day or next day)
-      const maxReturnTime = new Date(leaving);
-      maxReturnTime.setDate(maxReturnTime.getDate() + 1); // Allow up to next day
-      
-      if (returning > maxReturnTime) {
-        throw new Error("Returning time cannot be more than 24 hours after leaving");
-      }
-      
-      // Create and save the pass request
-      const passRequest = savePassRequest({
+      // Create the pass request object
+      const passRequest = {
         studentId: user.id,
         rollNumber: user.rollNumber,
-        leavingTime: formData.leavingTime,
-        returningTime: formData.returningTime,
-        purpose: formData.purpose,
-        status: "pending",
-      });
-      
-      toast({
-        title: "Pass Request Submitted",
-        description: "Your pass request has been submitted successfully and is pending approval.",
-      });
-      
+        purpose: data.purpose,
+        leavingTime: data.leavingTime,
+        returningTime: data.returningTime,
+        status: "pending" as const,
+      };
+
+      // Save to storage
+      savePassRequest(passRequest);
+
       // Reset form
-      setFormData({
-        leavingTime: "",
-        returningTime: "",
+      form.reset({
         purpose: "",
+        leavingTime: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16),
+        returningTime: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 16),
       });
-      
+
+      // Call the callback if provided
+      if (onPassCreated) {
+        onPassCreated();
+      }
     } catch (error) {
-      console.error("Pass request error:", error);
+      console.error("Error creating pass request:", error);
       toast({
-        title: "Request Failed",
-        description: error instanceof Error ? error.message : "Failed to submit pass request",
+        title: "Error",
+        description: "Failed to create pass request. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  // Helper to get min datetime (current time)
-  const getCurrentDateTime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  };
-
-  const minDateTime = getCurrentDateTime();
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="w-full max-w-md mx-auto"
-    >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-2 text-center">
-          <h2 className="text-2xl font-bold">Request Campus Pass</h2>
-          <p className="text-muted-foreground text-sm">
-            Fill in the details to request a campus pass
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rollNumber">Roll Number</Label>
-            <Input
-              id="rollNumber"
-              value={user?.rollNumber || ""}
-              disabled
-              className="w-full bg-muted/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="leavingTime">Leaving Time</Label>
-            <div className="relative">
-              <Input
-                id="leavingTime"
-                name="leavingTime"
-                type="datetime-local"
-                min={minDateTime}
-                value={formData.leavingTime}
-                onChange={handleChange}
-                required
-                className="w-full pl-10"
-              />
-              <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="returningTime">Returning Time</Label>
-            <div className="relative">
-              <Input
-                id="returningTime"
-                name="returningTime"
-                type="datetime-local"
-                min={formData.leavingTime || minDateTime}
-                value={formData.returningTime}
-                onChange={handleChange}
-                required
-                className="w-full pl-10"
-              />
-              <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="purpose">Purpose of Leave</Label>
-            <Textarea
-              id="purpose"
+    <Card>
+      <CardHeader>
+        <CardTitle>Request Campus Pass</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
               name="purpose"
-              placeholder="Briefly describe your purpose for leaving campus"
-              value={formData.purpose}
-              onChange={handleChange}
-              required
-              className="min-h-[100px]"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Purpose of Exit</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Briefly explain why you need to leave campus" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Clearly state the reason for your exit request
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-        </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Submitting...
-            </>
-          ) : (
-            "Submit Pass Request"
-          )}
-        </Button>
-      </form>
-    </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="leavingTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Leaving Time</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      When do you plan to leave?
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="returningTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Returning Time</FormLabel>
+                    <FormControl>
+                      <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      When will you return to campus?
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Pass Request"}
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+      <CardFooter className="bg-muted/50 text-sm text-muted-foreground">
+        Your request will be reviewed by campus authorities
+      </CardFooter>
+    </Card>
   );
 };
 

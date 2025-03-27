@@ -28,6 +28,14 @@ const Student = () => {
   const [activeTab, setActiveTab] = useState("request");
   const [selectedPass, setSelectedPass] = useState<any | null>(null);
 
+  // Load pass requests from localStorage on component mount and whenever localStorage might change
+  const loadPassRequests = () => {
+    if (user) {
+      const requests = getPassRequestsByStudent(user.id);
+      setPassRequests(requests);
+    }
+  };
+
   useEffect(() => {
     // If not authenticated or not a student, redirect to login
     if (!isAuthenticated || !isStudent) {
@@ -40,18 +48,31 @@ const Student = () => {
       return;
     }
     
-    // Load pass requests
-    if (user) {
-      const requests = getPassRequestsByStudent(user.id);
-      setPassRequests(requests);
-    }
+    // Initial load of pass requests
+    loadPassRequests();
+    
+    // Set up an event listener to detect changes in localStorage from other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'campus_pass_requests') {
+        loadPassRequests();
+      }
+    };
+
+    // Listen for storage events (triggered when localStorage changes in other tabs)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Clean up event listener when component unmounts
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [isAuthenticated, isStudent, user, navigate, toast]);
 
   const refreshPassRequests = () => {
-    if (user) {
-      const requests = getPassRequestsByStudent(user.id);
-      setPassRequests(requests);
-    }
+    loadPassRequests();
+    toast({
+      title: "Refreshed",
+      description: "Pass requests have been refreshed.",
+    });
   };
 
   const formatDateTime = (dateString: string) => {
@@ -78,6 +99,19 @@ const Student = () => {
   const handleViewPass = (pass: any) => {
     setSelectedPass(pass);
     setActiveTab("details");
+  };
+
+  // Custom component to handle new pass creation event
+  const onPassCreated = () => {
+    // Refresh the pass requests list
+    loadPassRequests();
+    // Switch to history tab to show the newly created pass
+    setActiveTab("history");
+    // Show success message
+    toast({
+      title: "Pass Request Submitted",
+      description: "Your pass request has been submitted successfully.",
+    });
   };
 
   return (
@@ -145,7 +179,7 @@ const Student = () => {
           
           <TabsContent value="request" className="space-y-4">
             <div className="max-w-md mx-auto">
-              <PassRequestForm />
+              <PassRequestForm onPassCreated={onPassCreated} />
             </div>
           </TabsContent>
           
