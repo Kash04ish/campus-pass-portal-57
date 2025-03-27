@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -14,8 +13,8 @@ const Admin = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // For demo purposes, auto-login as admin if coming directly to this page
-    if (!isAuthenticated && !isAdmin && !localStorage.getItem("user")) {
+    // Auto-login as admin for demo purposes if not authenticated
+    if (!isAuthenticated) {
       login({
         id: "admin",
         name: "Administrator",
@@ -34,8 +33,8 @@ const Admin = () => {
       return;
     }
     
-    // If not authenticated or not an admin, redirect to login
-    if (!isAuthenticated || !isAdmin) {
+    // If not an admin, redirect to login
+    if (!isAdmin) {
       toast({
         title: "Access Denied",
         description: "You must be logged in as an administrator to access this page.",

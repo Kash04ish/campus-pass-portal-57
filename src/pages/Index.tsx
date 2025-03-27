@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -61,13 +60,12 @@ const Index = () => {
               </Button>
             </Link>
             
-            {!isAuthenticated && (
-              <Link to="/admin">
-                <Button variant="outline" size="lg">
-                  Admin Portal
-                </Button>
-              </Link>
-            )}
+            <Link to="/admin" className="mb-4 sm:mb-0">
+              <Button variant="outline" size="lg" className="bg-primary/5 border-primary/20">
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Admin Portal
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
         

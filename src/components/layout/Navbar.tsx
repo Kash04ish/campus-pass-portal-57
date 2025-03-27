@@ -1,10 +1,9 @@
-
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Home } from "lucide-react";
+import { LogOut, User, Home, ShieldCheck } from "lucide-react";
 
 const Navbar: React.FC = () => {
   const location = useLocation();
@@ -13,7 +12,12 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { path: "/", label: "Home", icon: <Home className="h-4 w-4 mr-2" /> },
     { path: "/student", label: "Student Portal", show: isAuthenticated && user?.role === "student" },
-    { path: "/admin", label: "Admin Portal", show: isAuthenticated && user?.role === "admin" },
+    { 
+      path: "/admin", 
+      label: "Admin Portal", 
+      icon: <ShieldCheck className="h-4 w-4 mr-2" />,
+      show: true  // Always show admin portal link
+    },
     { path: "/register", label: "Register", show: !isAuthenticated },
   ];
 
