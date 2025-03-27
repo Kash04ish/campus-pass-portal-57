@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { getStudentByRollNumber } from "../utils/storage";
 
 type UserRole = "admin" | "student" | null;
 
@@ -25,7 +26,8 @@ interface AuthContextType {
   registerUser: (userData: Omit<User, "id" | "role">) => void;
   updateUser: (userData: Partial<User>) => void;
   isLoading: boolean;
-  adminLogin: (id: string, password: string) => boolean; // New admin login function
+  adminLogin: (id: string, password: string) => boolean;
+  studentLogin: (rollNumber: string) => boolean; // New student login function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,6 +100,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return false;
   };
 
+  const studentLogin = (rollNumber: string): boolean => {
+    // Find student by roll number
+    const student = getStudentByRollNumber(rollNumber);
+    if (student) {
+      // Create a user object with the student data
+      const userData: User = {
+        ...student,
+        role: "student",
+      };
+      login(userData);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -111,6 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateUser,
         isLoading,
         adminLogin,
+        studentLogin,
       }}
     >
       {children}
