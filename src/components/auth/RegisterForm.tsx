@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Camera } from "lucide-react";
+import { Loader2, Upload, Camera, User } from "lucide-react";
 
 const RegisterForm: React.FC = () => {
   const { registerUser } = useAuth();
@@ -44,17 +43,14 @@ const RegisterForm: React.FC = () => {
       const video = document.createElement("video");
       video.srcObject = stream;
       
-      // Wait for video to be ready
       await new Promise(resolve => {
         video.onloadedmetadata = resolve;
       });
       
       video.play();
       
-      // Wait a bit for camera to initialize
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Create canvas and capture frame
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -66,7 +62,6 @@ const RegisterForm: React.FC = () => {
         setPhotoPreview(dataUrl);
       }
       
-      // Stop all video streams
       stream.getTracks().forEach(track => track.stop());
       
     } catch (error) {
@@ -93,7 +88,6 @@ const RegisterForm: React.FC = () => {
     
     setLoading(true);
     
-    // Validate the form
     const { name, rollNumber, roomNumber, hostelName, contactNumber } = formData;
     if (!name || !rollNumber || !roomNumber || !hostelName || !contactNumber) {
       toast({
@@ -106,17 +100,14 @@ const RegisterForm: React.FC = () => {
     }
     
     try {
-      // Create the student profile
       const studentData = {
         ...formData,
         id: Date.now().toString(),
         photoUrl: photoPreview,
       };
       
-      // Save to local storage
       saveStudent(studentData);
       
-      // Register the user
       registerUser({
         ...studentData,
         photoUrl: photoPreview,
