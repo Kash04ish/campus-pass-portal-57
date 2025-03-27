@@ -12,6 +12,7 @@ interface User {
   contactNumber: string;
   photoUrl: string;
   role: UserRole;
+  password?: string; // Added for admin authentication
 }
 
 interface AuthContextType {
@@ -24,6 +25,7 @@ interface AuthContextType {
   registerUser: (userData: Omit<User, "id" | "role">) => void;
   updateUser: (userData: Partial<User>) => void;
   isLoading: boolean;
+  adminLogin: (id: string, password: string) => boolean; // New admin login function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 interface AuthProviderProps {
   children: React.ReactNode;
 }
+
+// Admin credentials - in a real app, these would be stored in a secure database
+const ADMIN_CREDENTIALS = {
+  id: "admin123",
+  password: "admin123",
+  name: "Administrator",
+  rollNumber: "ADMIN001",
+  roomNumber: "Admin Office",
+  hostelName: "Administration Building",
+  contactNumber: "123-456-7890",
+  photoUrl: "",
+  role: "admin" as const,
+};
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -74,6 +89,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const adminLogin = (id: string, password: string): boolean => {
+    // Check if credentials match admin credentials
+    if (id === ADMIN_CREDENTIALS.id && password === ADMIN_CREDENTIALS.password) {
+      login(ADMIN_CREDENTIALS);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -86,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         registerUser,
         updateUser,
         isLoading,
+        adminLogin,
       }}
     >
       {children}

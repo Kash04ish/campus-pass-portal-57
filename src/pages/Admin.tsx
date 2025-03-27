@@ -1,40 +1,23 @@
-import React, { useEffect } from "react";
+
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import PageTransition from "../components/ui/PageTransition";
 import PassRequestList from "../components/admin/PassRequestList";
+import AdminLoginForm from "../components/admin/AdminLoginForm";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, User, ShieldCheck } from "lucide-react";
 
 const Admin = () => {
-  const { isAuthenticated, user, isAdmin, login } = useAuth();
+  const { isAuthenticated, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [showLoginForm, setShowLoginForm] = useState(false);
 
   useEffect(() => {
-    // Auto-login as admin for demo purposes if not authenticated
-    if (!isAuthenticated) {
-      login({
-        id: "admin",
-        name: "Administrator",
-        rollNumber: "ADMIN001",
-        roomNumber: "Admin Office",
-        hostelName: "Administration Building",
-        contactNumber: "123-456-7890",
-        photoUrl: "",
-        role: "admin",
-      });
-      
-      toast({
-        title: "Demo Mode",
-        description: "You've been automatically logged in as an administrator.",
-      });
-      return;
-    }
-    
-    // If not an admin, redirect to login
-    if (!isAdmin) {
+    // If authenticated but not admin, redirect to login
+    if (isAuthenticated && !isAdmin) {
       toast({
         title: "Access Denied",
         description: "You must be logged in as an administrator to access this page.",
@@ -42,7 +25,25 @@ const Admin = () => {
       });
       navigate("/register", { replace: true });
     }
-  }, [isAuthenticated, isAdmin, navigate, toast, login]);
+    
+    // If not authenticated, show login form
+    if (!isAuthenticated) {
+      setShowLoginForm(true);
+    } else {
+      setShowLoginForm(false);
+    }
+  }, [isAuthenticated, isAdmin, navigate, toast]);
+
+  // Show login form if not authenticated
+  if (showLoginForm) {
+    return (
+      <PageTransition>
+        <div className="container max-w-md mx-auto px-4 py-12">
+          <AdminLoginForm />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>

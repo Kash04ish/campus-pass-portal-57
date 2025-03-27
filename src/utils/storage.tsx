@@ -10,6 +10,9 @@ export interface PassRequest {
   status: 'pending' | 'approved' | 'rejected';
   qrCode?: string;
   createdAt: string;
+  studentName?: string; // Added to store student name for better display
+  contactNumber?: string; // Added to store contact for notifications
+  notificationSent?: boolean; // Track if notification was sent
 }
 
 export interface Student {
@@ -55,6 +58,11 @@ export const getStudentByRollNumber = (rollNumber: string): Student | null => {
   return students.find(student => student.rollNumber === rollNumber) || null;
 };
 
+export const getStudentById = (id: string): Student | null => {
+  const students = getStudents();
+  return students.find(student => student.id === id) || null;
+};
+
 // Pass request functions
 export const getPassRequests = (): PassRequest[] => {
   const stored = localStorage.getItem(PASS_REQUESTS_KEY);
@@ -64,10 +72,16 @@ export const getPassRequests = (): PassRequest[] => {
 export const savePassRequest = (request: Omit<PassRequest, 'id' | 'createdAt'>): PassRequest => {
   const requests = getPassRequests();
   
+  // Get student info to include in the pass request
+  const student = getStudentById(request.studentId);
+  
   const newRequest: PassRequest = {
     ...request,
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
+    studentName: student?.name,
+    contactNumber: student?.contactNumber,
+    notificationSent: false,
   };
   
   requests.push(newRequest);
@@ -96,18 +110,41 @@ export const getPassRequestById = (id: string): PassRequest | null => {
   return requests.find(request => request.id === id) || null;
 };
 
-// QR Code generation (mock)
+// QR Code generation (improved)
 export const generateQRCode = (passRequest: PassRequest): string => {
-  // In a real application, you would use a QR code generation library
-  // For now, we'll just return a base64 encoded string representing the pass details
+  // Get student details to include in QR code
+  const student = getStudentByRollNumber(passRequest.rollNumber);
+  
+  // Create a more comprehensive data object for the QR code
   const passData = {
     id: passRequest.id,
-    rollNumber: passRequest.rollNumber,
-    leavingTime: passRequest.leavingTime,
-    returningTime: passRequest.returningTime,
-    purpose: passRequest.purpose
+    student: {
+      name: student?.name || passRequest.studentName || "Unknown",
+      rollNumber: passRequest.rollNumber,
+      hostel: student?.hostelName || "Unknown",
+      roomNumber: student?.roomNumber || "Unknown",
+      contactNumber: student?.contactNumber || passRequest.contactNumber || "Unknown",
+    },
+    pass: {
+      leavingTime: passRequest.leavingTime,
+      returningTime: passRequest.returningTime,
+      purpose: passRequest.purpose,
+      status: passRequest.status,
+      issuedAt: new Date().toISOString(),
+    }
   };
   
-  // This would normally be a QR code image
+  // In a real application, you would use a proper QR code library
+  // For now, we'll return a base64 encoded string with more detailed information
   return `data:image/png;base64,${btoa(JSON.stringify(passData))}`;
+};
+
+// New function to simulate sending notification to student
+export const notifyStudentAboutPass = (passRequest: PassRequest): boolean => {
+  // In a real application, this would send an email, SMS, or push notification
+  console.log(`Notification sent to ${passRequest.studentName} about pass ${passRequest.id}`);
+  
+  // Mark the notification as sent
+  updatePassRequest(passRequest.id, { notificationSent: true });
+  return true;
 };

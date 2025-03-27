@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -6,7 +5,8 @@ import {
   getStudentByRollNumber, 
   updatePassRequest, 
   generateQRCode,
-  Student
+  Student,
+  notifyStudentAboutPass
 } from "../../utils/storage";
 import { Button } from "@/components/ui/button";
 import { 
@@ -34,7 +34,8 @@ import {
   Calendar, 
   Clock, 
   QrCode,
-  Loader2
+  Loader2,
+  Bell
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -49,6 +50,10 @@ const PassRequestList: React.FC = () => {
 
   useEffect(() => {
     loadRequests();
+    
+    const intervalId = setInterval(loadRequests, 60000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const loadRequests = () => {
@@ -81,19 +86,25 @@ const PassRequestList: React.FC = () => {
       let updatedRequest: any;
       
       if (status === 'approved') {
-        // Generate QR code for the pass
         const request = requests.find(r => r.id === id);
         if (!request) throw new Error("Request not found");
         
         const qrCode = generateQRCode(request);
         updatedRequest = updatePassRequest(id, { status, qrCode });
+        
+        if (updatedRequest && !updatedRequest.notificationSent) {
+          notifyStudentAboutPass(updatedRequest);
+          toast({
+            title: "Notification Sent",
+            description: "The student has been notified about their approved pass.",
+          });
+        }
       } else {
         updatedRequest = updatePassRequest(id, { status });
       }
       
       if (!updatedRequest) throw new Error("Failed to update request");
       
-      // Update the requests list
       setRequests(prev => 
         prev.map(r => r.id === id ? { ...r, status, qrCode: updatedRequest.qrCode } : r)
       );
@@ -103,7 +114,6 @@ const PassRequestList: React.FC = () => {
         description: `The pass request has been ${status}.`,
       });
       
-      // If viewing this request, update the selected request
       if (selectedRequest?.id === id) {
         setSelectedRequest({ ...selectedRequest, status, qrCode: updatedRequest.qrCode });
       }
@@ -141,6 +151,25 @@ const PassRequestList: React.FC = () => {
     }
   };
 
+  const handleSendNotification = (request: any) => {
+    if (request.status === 'approved' && request.qrCode) {
+      notifyStudentAboutPass(request);
+      
+      setRequests(prev => 
+        prev.map(r => r.id === request.id ? { ...r, notificationSent: true } : r)
+      );
+      
+      if (selectedRequest?.id === request.id) {
+        setSelectedRequest({ ...selectedRequest, notificationSent: true });
+      }
+      
+      toast({
+        title: "Notification Sent",
+        description: `The QR code has been sent to ${request.studentName || 'the student'}.`,
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -168,6 +197,7 @@ const PassRequestList: React.FC = () => {
             <TableHeader className="bg-muted/40">
               <TableRow>
                 <TableHead>Roll Number</TableHead>
+                <TableHead>Student Name</TableHead>
                 <TableHead>Leaving Time</TableHead>
                 <TableHead>Returning Time</TableHead>
                 <TableHead>Purpose</TableHead>
@@ -189,6 +219,7 @@ const PassRequestList: React.FC = () => {
                     <TableCell className="font-medium">
                       {request.rollNumber}
                     </TableCell>
+                    <TableCell>{request.studentName || "Unknown"}</TableCell>
                     <TableCell>{formatDateTime(request.leavingTime)}</TableCell>
                     <TableCell>{formatDateTime(request.returningTime)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
@@ -204,6 +235,18 @@ const PassRequestList: React.FC = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {request.status === 'approved' && !request.notificationSent && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => handleSendNotification(request)}
+                            title="Send QR code to student"
+                          >
+                            <Bell className="h-4 w-4" />
+                          </Button>
+                        )}
                         
                         {request.status === 'pending' && (
                           <>
@@ -257,7 +300,6 @@ const PassRequestList: React.FC = () => {
           
           {selectedRequest && (
             <div className="space-y-6 py-2">
-              {/* Student Information */}
               <div className="bg-muted/30 rounded-lg p-4 space-y-4">
                 <h3 className="font-medium flex items-center gap-2">
                   <User className="h-4 w-4" />
@@ -288,7 +330,6 @@ const PassRequestList: React.FC = () => {
                 </div>
               </div>
               
-              {/* Pass Details */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -317,7 +358,6 @@ const PassRequestList: React.FC = () => {
                   <div className="mt-2">{getStatusBadge(selectedRequest.status)}</div>
                 </div>
                 
-                {/* QR Code for approved requests */}
                 {selectedRequest.status === 'approved' && selectedRequest.qrCode && (
                   <div className="text-center py-2">
                     <h4 className="text-sm font-medium mb-2 flex items-center justify-center gap-1">
@@ -331,11 +371,28 @@ const PassRequestList: React.FC = () => {
                         className="w-40 h-40"
                       />
                     </div>
+                    
+                    {!selectedRequest.notificationSent && (
+                      <Button
+                        variant="outline" 
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => handleSendNotification(selectedRequest)}
+                      >
+                        <Bell className="h-4 w-4 mr-2" />
+                        Send QR Code to Student
+                      </Button>
+                    )}
+                    
+                    {selectedRequest.notificationSent && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ✓ QR code sent to student
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
               
-              {/* Action buttons for pending requests */}
               {selectedRequest.status === 'pending' && (
                 <div className="flex justify-end gap-2 mt-4">
                   <Button
