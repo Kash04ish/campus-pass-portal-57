@@ -1,17 +1,21 @@
 
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import RegisterForm from "../components/auth/RegisterForm";
 import { getStudentByRollNumber } from "../utils/storage";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { UserCog } from "lucide-react";
 
 const Register = () => {
   const { isAuthenticated, user, login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  const [searchParams] = useSearchParams();
+  
+  // Process admin login from query parameter
   useEffect(() => {
     // If already authenticated, redirect to the appropriate portal
     if (isAuthenticated) {
@@ -20,7 +24,7 @@ const Register = () => {
     }
     
     // Check for auto-login as admin (for demo purposes)
-    if (location.search === "?admin") {
+    if (searchParams.get("admin") !== null) {
       login({
         id: "admin",
         name: "Administrator",
@@ -39,7 +43,27 @@ const Register = () => {
       
       navigate("/admin", { replace: true });
     }
-  }, [isAuthenticated, user, navigate, login, toast]);
+  }, [isAuthenticated, user, navigate, login, toast, searchParams]);
+
+  const handleAdminLogin = () => {
+    login({
+      id: "admin",
+      name: "Administrator",
+      rollNumber: "ADMIN001",
+      roomNumber: "Admin Office",
+      hostelName: "Administration Building",
+      contactNumber: "123-456-7890",
+      photoUrl: "",
+      role: "admin",
+    });
+    
+    toast({
+      title: "Admin Login",
+      description: "You've been logged in as an administrator.",
+    });
+    
+    navigate("/admin", { replace: true });
+  };
 
   const handleCheckStudent = (rollNumber: string) => {
     const existingStudent = getStudentByRollNumber(rollNumber);
@@ -86,14 +110,18 @@ const Register = () => {
             <p className="text-sm text-muted-foreground mb-2">
               If you've registered before, simply enter your roll number and we'll find your account.
             </p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs">For demo:</p>
-              <a 
-                href="?admin" 
-                className="text-xs text-primary underline hover:text-primary/80"
+            <div className="flex flex-col gap-3 mt-4">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={handleAdminLogin}
               >
-                Login as Admin
-              </a>
+                <UserCog size={16} />
+                Demo Admin Login
+              </Button>
+              <div className="text-xs text-muted-foreground">
+                Click above to access the admin portal with demo credentials
+              </div>
             </div>
           </div>
         </motion.div>
