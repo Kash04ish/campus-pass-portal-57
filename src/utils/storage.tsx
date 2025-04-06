@@ -25,6 +25,9 @@ export interface Student {
   photoUrl: string;
 }
 
+// Import QR code generator
+import QRCode from 'qrcode';
+
 // Mock storage functions
 const STUDENTS_KEY = 'campus_pass_students';
 const PASS_REQUESTS_KEY = 'campus_pass_requests';
@@ -110,12 +113,12 @@ export const getPassRequestById = (id: string): PassRequest | null => {
   return requests.find(request => request.id === id) || null;
 };
 
-// QR Code generation (improved)
-export const generateQRCode = (passRequest: PassRequest): string => {
+// Improved QR Code generation with proper library
+export const generateQRCode = async (passRequest: PassRequest): Promise<string> => {
   // Get student details to include in QR code
   const student = getStudentByRollNumber(passRequest.rollNumber);
   
-  // Create a more comprehensive data object for the QR code
+  // Create a comprehensive data object for the QR code
   const passData = {
     id: passRequest.id,
     student: {
@@ -134,9 +137,41 @@ export const generateQRCode = (passRequest: PassRequest): string => {
     }
   };
   
-  // In a real application, you would use a proper QR code library
-  // For now, we'll return a base64 encoded string with more detailed information
-  return `data:image/png;base64,${btoa(JSON.stringify(passData))}`;
+  try {
+    // Generate QR code as data URL using the qrcode library
+    const qrCodeDataUrl = await QRCode.toDataURL(JSON.stringify(passData), {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: 300,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+    
+    return qrCodeDataUrl;
+  } catch (error) {
+    console.error("Error generating QR code:", error);
+    // Fallback to a basic data URL in case of error
+    return `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==`;
+  }
+};
+
+// Update handle QR code function to be async
+export const handleApproveWithQRCode = async (passRequest: PassRequest): Promise<PassRequest | null> => {
+  try {
+    // Generate QR code
+    const qrCode = await generateQRCode(passRequest);
+    
+    // Update pass request with QR code and approved status
+    return updatePassRequest(passRequest.id, { 
+      status: 'approved', 
+      qrCode 
+    });
+  } catch (error) {
+    console.error("Error approving pass with QR code:", error);
+    return null;
+  }
 };
 
 // New function to simulate sending notification to student

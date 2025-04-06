@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -5,6 +6,7 @@ import {
   getStudentByRollNumber, 
   updatePassRequest, 
   generateQRCode,
+  handleApproveWithQRCode,
   Student,
   notifyStudentAboutPass
 } from "../../utils/storage";
@@ -89,8 +91,10 @@ const PassRequestList: React.FC = () => {
         const request = requests.find(r => r.id === id);
         if (!request) throw new Error("Request not found");
         
-        const qrCode = generateQRCode(request);
-        updatedRequest = updatePassRequest(id, { status, qrCode });
+        // Use the async handleApproveWithQRCode function
+        updatedRequest = await handleApproveWithQRCode(request);
+        
+        if (!updatedRequest) throw new Error("Failed to generate QR code");
         
         if (updatedRequest && !updatedRequest.notificationSent) {
           notifyStudentAboutPass(updatedRequest);
